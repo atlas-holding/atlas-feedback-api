@@ -1,6 +1,6 @@
-# ${{ values.name }}
+# atlas-feedback-api
 
-${{ values.description }}
+atlas-feedback-api service
 
 ## Stack
 - Langage : ${{ values.language }}
@@ -11,9 +11,9 @@ ${{ values.description }}
 ```bash
 # Cloner le repo
 git clone <repo-url>
-cd ${{ values.name }}
+cd atlas-feedback-api
 
 # Lancer en local
-docker build -t ${{ values.name }} .
-docker run -p 8080:8080 ${{ values.name }}
+docker build -t atlas-feedback-api .
+docker run -p 8080:8080 atlas-feedback-api
 ```
