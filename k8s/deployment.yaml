@@ -1,20 +1,20 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: ${{ values.name }}
+  name: atlas-feedback-api
   labels:
-    app: ${{ values.name }}
+    app: atlas-feedback-api
     dxp.io/managed: "true"
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: ${{ values.name }}
+      app: atlas-feedback-api
   template:
     metadata:
       labels:
-        app: ${{ values.name }}
-        backstage.io/kubernetes-id: ${{ values.name }}
+        app: atlas-feedback-api
+        backstage.io/kubernetes-id: atlas-feedback-api
     spec:
       nodeSelector:
         role: workload
@@ -24,8 +24,8 @@ spec:
         value: workload
         effect: NoSchedule
       containers:
-      - name: ${{ values.name }}
-        image: harbor.dxp/dxp/${{ values.name }}:latest
+      - name: atlas-feedback-api
+        image: harbor.harbor.svc.cluster.local/dxp/atlas-feedback-api:b3a3a3c
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 3000
@@ -46,10 +46,10 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: ${{ values.name }}
+  name: atlas-feedback-api
 spec:
   selector:
-    app: ${{ values.name }}
+    app: atlas-feedback-api
   ports:
   - port: 80
     targetPort: 3000
@@ -58,20 +58,20 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: ${{ values.name }}
+  name: atlas-feedback-api
   labels:
-    app: ${{ values.name }}
+    app: atlas-feedback-api
     dxp.io/managed: "true"
 spec:
   ingressClassName: nginx
   rules:
-  - host: ${{ values.name }}.68.221.5.247.nip.io
+  - host: atlas-feedback-api.68.221.5.247.nip.io
     http:
       paths:
       - path: /
         pathType: Prefix
         backend:
           service:
-            name: ${{ values.name }}
+            name: atlas-feedback-api
             port:
               number: 80
