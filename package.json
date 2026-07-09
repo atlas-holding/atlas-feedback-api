@@ -1,9 +1,14 @@
 {
-  "name": "${{ values.name }}",
+  "name": "atlas-feedback-api",
   "version": "1.0.0",
-  "description": "${{ values.description }}",
+  "description": "API REST du mur de feedback Atlas -- stockage SQLite embarque",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "better-sqlite3": "^11.1.2",
+    "cors": "^2.8.5"
   }
 }

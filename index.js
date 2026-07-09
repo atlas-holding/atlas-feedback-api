@@ -1,133 +1,52 @@
-const http = require('http');
-const port = process.env.PORT || 3000;
-const SERVICE = '${{ values.name }}';
-const ENV = process.env.ENV || 'dev';
-const VERSION = process.env.VERSION || 'latest';
+const express = require('express');
+const cors = require('cors');
+const Database = require('better-sqlite3');
+const path = require('path');
 
-const html = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${SERVICE}</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: #0f1117;
-      color: #e2e8f0;
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .card {
-      background: #1a1d2e;
-      border: 1px solid #2d3148;
-      border-radius: 12px;
-      padding: 40px 48px;
-      min-width: 420px;
-      box-shadow: 0 4px 32px rgba(0,0,0,0.4);
-    }
-    .platform {
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 2px;
-      text-transform: uppercase;
-      color: #6366f1;
-      margin-bottom: 8px;
-    }
-    .service-name {
-      font-size: 28px;
-      font-weight: 700;
-      color: #f1f5f9;
-      margin-bottom: 32px;
-    }
-    .divider {
-      border: none;
-      border-top: 1px solid #2d3148;
-      margin-bottom: 24px;
-    }
-    .row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 16px;
-    }
-    .label {
-      font-size: 12px;
-      color: #64748b;
-      font-weight: 500;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-    }
-    .value {
-      font-size: 13px;
-      font-weight: 600;
-      color: #e2e8f0;
-    }
-    .status-dot {
-      display: inline-block;
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #22c55e;
-      margin-right: 8px;
-      box-shadow: 0 0 6px #22c55e;
-    }
-    .env-badge {
-      display: inline-block;
-      padding: 2px 10px;
-      border-radius: 4px;
-      font-size: 11px;
-      font-weight: 700;
-      background: #1e293b;
-      color: #6366f1;
-      border: 1px solid #6366f1;
-      text-transform: uppercase;
-    }
-    .footer {
-      margin-top: 32px;
-      text-align: center;
-      font-size: 11px;
-      color: #334155;
-    }
-  </style>
-</head>
-<body>
-  <div class="card">
-    <div class="platform">DxP Platform &mdash; Atlas Holding</div>
-    <div class="service-name">${SERVICE}</div>
-    <hr class="divider">
-    <div class="row">
-      <span class="label">Status</span>
-      <span class="value"><span class="status-dot"></span>Live</span>
-    </div>
-    <div class="row">
-      <span class="label">Environment</span>
-      <span class="value"><span class="env-badge">${ENV}</span></span>
-    </div>
-    <div class="row">
-      <span class="label">Version</span>
-      <span class="value">${VERSION}</span>
-    </div>
-    <div class="row">
-      <span class="label">Port</span>
-      <span class="value">${port}</span>
-    </div>
-    <div class="footer">Powered by DxP &mdash; DXC Technology Maroc</div>
-  </div>
-</body>
-</html>`;
+const PORT = process.env.PORT || 3000;
 
-http.createServer((req, res) => {
-  if (req.url === '/health') {
-    res.writeHead(200, {'Content-Type': 'application/json'});
-    res.end(JSON.stringify({ status: 'ok', service: SERVICE }));
-    return;
+// SQLite embarque dans le conteneur -- pas de PVC (decision S61, demo :
+// redemarrage du pod = base fraiche, aucun risque de corruption en direct).
+const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'feedback.db');
+const db = new Database(DB_PATH);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS feedback (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    author TEXT NOT NULL,
+    message TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )
+`);
+
+const app = express();
+app.use(cors()); // frontend et backend sont deux services distincts (deux
+                  // hosts d'Ingress differents) -- CORS ouvert pour la demo.
+app.use(express.json());
+
+// GET /feedback -- liste des messages, plus recent en premier.
+app.get('/feedback', (req, res) => {
+  const rows = db.prepare('SELECT id, author, message, created_at FROM feedback ORDER BY id DESC').all();
+  res.json(rows);
+});
+
+// POST /feedback -- ajoute un message. Body attendu : { author, message }.
+app.post('/feedback', (req, res) => {
+  const { author, message } = req.body || {};
+  if (!author || !author.trim() || !message || !message.trim()) {
+    return res.status(400).json({ error: 'author et message sont requis' });
   }
-  res.writeHead(200, {'Content-Type': 'text/html'});
-  res.end(html);
-}).listen(port, () => {
-  console.log(`${SERVICE} running on port ${port}`);
+  const stmt = db.prepare('INSERT INTO feedback (author, message) VALUES (?, ?)');
+  const result = stmt.run(author.trim(), message.trim());
+  const created = db.prepare('SELECT id, author, message, created_at FROM feedback WHERE id = ?').get(result.lastInsertRowid);
+  res.status(201).json(created);
+});
+
+// /health -- requis par le liveness probe (k8s/deployment.yaml, port 3000).
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', service: 'atlas-feedback-api' });
+});
+
+app.listen(PORT, () => {
+  console.log(`atlas-feedback-api listening on port ${PORT}`);
 });
