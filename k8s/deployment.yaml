@@ -25,7 +25,7 @@ spec:
         effect: NoSchedule
       containers:
       - name: atlas-feedback-api
-        image: harbor.harbor.svc.cluster.local/dxp/atlas-feedback-api:b3a3a3c
+        image: harbor.harbor.svc.cluster.local/dxp/atlas-feedback-api:bb87bfd
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 3000
