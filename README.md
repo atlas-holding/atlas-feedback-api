@@ -1,6 +1,6 @@
 # atlas-feedback-api
 
-atlas-feedback-api service
+atlas-feedback-api service test
 
 ## Stack
 - Langage : ${{ values.language }}
